@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Firebase Admin Dashboard</title>
+  <style>
+    :root {
+      --primary: #6366f1; --primary-dark: #4f46e5; --danger: #ef4444;
+      --bg: #f3f4f6; --card: #ffffff; --text: #1f2937; --text-muted: #6b7280;
+      --border: #e5e7eb;
+    }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+    .container { max-width: 1000px; margin: 0 auto; }
+    
+    /* URL Config Card */
+    .card { background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; border: 1px solid var(--border); }
+    .section-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+    .url-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+    .input-group { display: flex; flex-direction: column; gap: 5px; }
+    label { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); }
+    input, select { padding: 10px; border: 1px solid var(--border); border-radius: 8px; outline: none; transition: 0.2s; }
+    input:focus { border-color: var(--primary); }
+    
+    /* User Table Styles */
+    .controls { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+    .table-wrapper { background: white; border-radius: 10px; border: 1px solid var(--border); overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f9fafb; padding: 12px; text-align: left; font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; }
+    td { padding: 12px; border-top: 1px solid var(--border); font-size: 0.9rem; }
+    .brand-badge { background: #e0e7ff; color: #4338ca; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; }
+    
+    /* Buttons */
+    .btn-primary { background: var(--primary); color: white; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+    .btn-danger { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+    .btn-secondary { background: #f3f4f6; border: 1px solid var(--border); padding: 8px 15px; border-radius: 6px; cursor: pointer; }
+
+    /* Footer Pagination */
+    .footer { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #fff; border-top: 1px solid var(--border); }
+
+    /* Modal */
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1000; }
+    .modal-content { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; }
+
+    /* Toast */
+    .toast { position: fixed; bottom: 20px; right: 20px; padding: 12px 20px; border-radius: 8px; color: white; display: none; z-index: 2000; background: #333; }
+    .toast.success { background: #10b981; }
+    .toast.error { background: #ef4444; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  
+  <!-- URL CONFIGURATION -->
+  <div class="card">
+    <div class="section-title">🔗 App Configuration (URLs)</div>
+    <div class="url-grid">
+      <div class="input-group"><label>Sikkim URL</label><input id="sikkim_url" type="text" placeholder="https://..."></div>
+      <div class="input-group"><label>Dmwin URL</label><input id="dmwin_url" type="text" placeholder="https://..."></div>
+      <div class="input-group"><label>Tashan URL</label><input id="tashan_url" type="text" placeholder="https://..."></div>
+      <div class="input-group"><label>Jalwa URL</label><input id="jalwa_url" type="text" placeholder="https://..."></div>
+    </div>
+    <button class="btn-primary" style="margin-top: 15px;" id="updateUrls">Update All URLs</button>
+  </div>
+
+  <!-- USER MANAGEMENT -->
+  <div class="card">
+    <div class="section-title">
+      <span>👥 User Management (<span id="totalUserCount">0</span>)</span>
+      <button class="btn-primary" onclick="openAdd()">+ Add User</button>
+    </div>
+
+    <div class="controls">
+      <input id="searchBox" style="flex: 2;" placeholder="🔍 Search by Mobile or Brand..." oninput="applyFilter()">
+      <select id="sortOrder" style="flex: 1;" onchange="applyFilter()">
+        <option value="new">🕒 Newest First</option>
+        <option value="old">🕰️ Oldest First</option>
+      </select>
+    </div>
+
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Mobile</th>
+            <th>Brand / Device</th>
+            <th>Join Date</th>
+            <th style="text-align: right;">Action</th>
+          </tr>
+        </thead>
+        <tbody id="userTable"></tbody>
+      </table>
+      
+      <div class="footer">
+        <span id="pageInfo" style="color: var(--text-muted); font-size: 0.9rem;">Showing 0-0 of 0</span>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn-secondary" onclick="prev()" id="prevBtn">Previous</button>
+          <button class="btn-secondary" onclick="next()" id="nextBtn">Next</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODALS -->
+<div class="modal" id="addModal">
+  <div class="modal-content">
+    <h3>Add New User</h3>
+    <div class="input-group" style="margin-bottom: 15px;"><label>Mobile Number</label><input id="uMobile" type="number"></div>
+    <div class="input-group" style="margin-bottom: 20px;"><label>Brand Name</label><input id="uBrand" type="text"></div>
+    <div style="display: flex; gap: 10px;">
+      <button class="btn-primary" style="flex:1" onclick="addUser()">Save User</button>
+      <button class="btn-secondary" style="flex:1" onclick="closeAdd()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="deleteModal">
+  <div class="modal-content">
+    <h3 style="color: var(--danger);">Delete User?</h3>
+    <p id="deleteMsg" style="color: var(--text-muted);"></p>
+    <div style="display: flex; gap: 10px; margin-top: 20px;">
+      <button class="btn-danger" style="flex:1" onclick="confirmDelete()">Yes, Delete</button>
+      <button class="btn-secondary" style="flex:1" onclick="closeDelete()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getDatabase, ref, set, update, remove, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+const firebaseConfig = { databaseURL: "https://jahiddex-e188b-default-rtdb.firebaseio.com" };
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+let allUsers = [];
+let filtered = [];
+let page = 0;
+const limit = 10;
+let deleteId = null;
+
+// --- URL CONFIG LOGIC ---
+const configRef = ref(db, "data/data");
+onValue(configRef, (snap) => {
+  const d = snap.val();
+  if(d) {
+    document.getElementById('sikkim_url').value = d.Sikkim_url || "";
+    document.getElementById('dmwin_url').value = d.dmwin_url || "";
+    document.getElementById('tashan_url').value = d.tashan_url || "";
+    document.getElementById('jalwa_url').value = d.Jalwa_url || "";
+  }
+});
+
+document.getElementById('updateUrls').onclick = () => {
+  update(configRef, {
+    Sikkim_url: document.getElementById('sikkim_url').value,
+    dmwin_url: document.getElementById('dmwin_url').value,
+    tashan_url: document.getElementById('tashan_url').value,
+    Jalwa_url: document.getElementById('jalwa_url').value
+  }).then(() => showToast("URLs Updated Successfully"));
+};
+
+// --- USER MANAGEMENT LOGIC ---
+onValue(ref(db, 'dbRef'), snap => {
+  const data = snap.val() || {};
+  allUsers = Object.entries(data)
+    .map(([key, val]) => ({ ...val, _id: key }))
+    .filter(u => u.mobile);
+
+  document.getElementById('totalUserCount').innerText = allUsers.length.toLocaleString();
+  window.applyFilter();
+});
+
+window.applyFilter = () => {
+  const q = document.getElementById('searchBox').value.toLowerCase();
+  const sortType = document.getElementById('sortOrder').value;
+
+  filtered = allUsers.filter(u => 
+    (u.mobile && u.mobile.toString().includes(q)) || 
+    (u.brand && u.brand.toLowerCase().includes(q))
+  );
+
+  filtered.sort((a, b) => {
+    const t1 = new Date(a.time || 0).getTime();
+    const t2 = new Date(b.time || 0).getTime();
+    return sortType === 'new' ? t2 - t1 : t1 - t2;
+  });
+
+  page = 0;
+  render();
+};
+
+function render() {
+  const tbody = document.getElementById('userTable');
+  tbody.innerHTML = "";
+  
+  const start = page * limit;
+  const end = Math.min(start + limit, filtered.length);
+  const pageData = filtered.slice(start, end);
+
+  document.getElementById('pageInfo').innerText = `Showing ${filtered.length > 0 ? start + 1 : 0}-${end} of ${filtered.length}`;
+  document.getElementById('prevBtn').disabled = page === 0;
+  document.getElementById('nextBtn').disabled = end >= filtered.length;
+
+  if (pageData.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 3rem; color:#999;">No users found</td></tr>`;
+    return;
+  }
+
+  pageData.forEach(u => {
+    tbody.innerHTML += `
+      <tr>
+        <td><b>${u.mobile}</b></td>
+        <td><span class="brand-badge">${u.brand || 'Unknown'}</span></td>
+        <td style="color: var(--text-muted);">${u.time || '-'}</td>
+        <td style="text-align: right;">
+          <button class="btn-danger" onclick="askDelete('${u._id}', '${u.mobile}')">Delete</button>
+        </td>
+      </tr>`;
+  });
+}
+
+window.next = () => { if ((page + 1) * limit < filtered.length) { page++; render(); } };
+window.prev = () => { if (page > 0) { page--; render(); } };
+
+window.openAdd = () => {
+  document.getElementById('uMobile').value = "";
+  document.getElementById('uBrand').value = "";
+  document.getElementById('addModal').style.display = "flex";
+};
+window.closeAdd = () => document.getElementById('addModal').style.display = "none";
+
+window.addUser = () => {
+  const mobile = document.getElementById('uMobile').value.trim();
+  const brand = document.getElementById('uBrand').value.trim();
+  if (!mobile || !brand) return showToast("Fields cannot be empty", "error");
+
+  set(ref(db, "dbRef/" + mobile), {
+    mobile: mobile,
+    brand: brand,
+    balance: "0",
+    time: new Date().toLocaleString(),
+    token: ""
+  }).then(() => { 
+    showToast("User Added!"); 
+    closeAdd(); 
+  }).catch(err => showToast(err.message, "error"));
+};
+
+window.askDelete = (id, mobile) => {
+  deleteId = id;
+  document.getElementById('deleteMsg').innerText = `Are you sure you want to delete user ${mobile}?`;
+  document.getElementById('deleteModal').style.display = "flex";
+};
+window.closeDelete = () => document.getElementById('deleteModal').style.display = "none";
+
+window.confirmDelete = () => {
+  if (deleteId) {
+    remove(ref(db, "dbRef/" + deleteId)).then(() => { 
+      showToast("User Deleted"); 
+      closeDelete(); 
+    });
+  }
+};
+
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.innerText = msg;
+  t.className = `toast ${type}`;
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 3000);
+}
+</script>
+</body>
+  </html>
