@@ -60,6 +60,9 @@
       <div class="input-group"><label>Dmwin URL</label><input id="dmwin_url" type="text" placeholder="https://..."></div>
       <div class="input-group"><label>Tashan URL</label><input id="tashan_url" type="text" placeholder="https://..."></div>
       <div class="input-group"><label>Jalwa URL</label><input id="jalwa_url" type="text" placeholder="https://..."></div>
+      <!-- Added Okwin and 6club URLs -->
+      <div class="input-group"><label>Okwin URL</label><input id="okwin_url" type="text" placeholder="https://..."></div>
+      <div class="input-group"><label>6club URL</label><input id="6club_url" type="text" placeholder="https://..."></div>
     </div>
     <button class="btn-primary" style="margin-top: 15px;" id="updateUrls">Update All URLs</button>
   </div>
@@ -139,7 +142,7 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 let allUsers = [];
-let filtered = [];
+let filtered =[];
 let page = 0;
 const limit = 10;
 let deleteId = null;
@@ -153,6 +156,9 @@ onValue(configRef, (snap) => {
     document.getElementById('dmwin_url').value = d.dmwin_url || "";
     document.getElementById('tashan_url').value = d.tashan_url || "";
     document.getElementById('jalwa_url').value = d.Jalwa_url || "";
+    // Fetching okwin and 6club URLs
+    document.getElementById('okwin_url').value = d.okwin_url || "";
+    document.getElementById('6club_url').value = d["6club_url"] || "";
   }
 });
 
@@ -161,8 +167,12 @@ document.getElementById('updateUrls').onclick = () => {
     Sikkim_url: document.getElementById('sikkim_url').value,
     dmwin_url: document.getElementById('dmwin_url').value,
     tashan_url: document.getElementById('tashan_url').value,
-    Jalwa_url: document.getElementById('jalwa_url').value
-  }).then(() => showToast("URLs Updated Successfully"));
+    Jalwa_url: document.getElementById('jalwa_url').value,
+    // Updating okwin and 6club URLs
+    okwin_url: document.getElementById('okwin_url').value,
+    "6club_url": document.getElementById('6club_url').value
+  }).then(() => showToast("URLs Updated Successfully"))
+    .catch(err => showToast("Error updating URLs: " + err.message, "error"));
 };
 
 // --- USER MANAGEMENT LOGIC ---
@@ -277,4 +287,4 @@ function showToast(msg, type = 'success') {
 }
 </script>
 </body>
-  </html>
+</html>
